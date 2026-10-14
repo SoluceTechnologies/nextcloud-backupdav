@@ -130,6 +130,8 @@ rclone copy nextcloud-export: backup:nextcloud-export/ \
 - `--create-empty-src-dirs` keeps empty folders.
 - `copy` never deletes at the destination: files of deleted users or deleted files stay there.
   `rclone sync` mirrors deletions; pair it with `--backup-dir` or destination-side versioning.
+  With `sync`, anything missing from a listing is deleted at the destination, including a group
+  folder that is temporarily unreachable (see Known limits). Prefer `copy` plus retention on B.
 
 ### Example: nightly A → C → B
 
@@ -143,7 +145,7 @@ On server C, as the user owning the rclone config:
 
 | Command | Effect (within a few seconds) |
 |---|---|
-| `occ backupdav:credentials:rotate` | New secret; the old one gets `401`. Update `pass` in rclone. |
+| `occ backupdav:credentials:rotate` | New secret; the old one gets `401` (then `429`, see Logs). Update `pass` in rclone. |
 | `occ backupdav:credentials:revoke` | Secret deleted; the endpoint answers `404`. |
 | `occ backupdav:disable` | Endpoint answers `404`; the secret is kept. |
 | `occ backupdav:enable` | Endpoint answers again (requires a secret). |
@@ -156,9 +158,10 @@ every request within that delay. A download already in progress finishes.
 Entries go to the Nextcloud log with `"app": "backupdav"`:
 
 - warning: failed authentication (client IP only), requests from non-allowed IPs, storage read
-  errors, group folders that cannot be reached, PROPFIND requests slower than 10 s;
+  errors (including a groupfolders API mismatch), group folders that cannot be reached, PROPFIND
+  requests slower than 10 s;
 - info: secret generated, rotated, revoked; endpoint enabled, disabled;
-- error: unexpected failures, including a groupfolders API mismatch.
+- error: unexpected failures.
 
 Never logged: the `Authorization` header, secrets, submitted usernames or passwords, file contents.
 To log this app at debug level without raising the global level, add to `config.php`:
@@ -167,8 +170,10 @@ To log this app at debug level without raising the global level, add to `config.
 'log.condition' => ['apps' => ['backupdav']],
 ```
 
-Failed authentications also feed Nextcloud's brute-force protection (action `backupdav`):
-repeated failures slow down, then block (`429`), the client IP.
+Failed authentications feed Nextcloud's brute-force protection (action `backupdav`): after 10
+failures within 30 minutes, further wrong credentials from that IP get `429` until the window
+expires or `occ security:bruteforce:reset <ip>` is run. The correct secret is never blocked, so an
+rclone job still running with a rotated-out secret cannot lock out the new one.
 
 ## Resource impact
 

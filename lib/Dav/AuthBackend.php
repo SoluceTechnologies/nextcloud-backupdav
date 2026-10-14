@@ -11,10 +11,12 @@ use OCP\Security\Bruteforce\MaxDelayReached;
 use Psr\Log\LoggerInterface;
 use Sabre\DAV\Auth\Backend\AbstractBasic;
 use Sabre\DAV\Exception as DavException;
-use Sabre\HTTP\RequestInterface;
-use Sabre\HTTP\ResponseInterface;
 
-/** HTTP Basic for the backup-service identity, behind Nextcloud's brute-force throttler. */
+/**
+ * HTTP Basic for the backup-service identity, behind Nextcloud's brute-force throttler. Only failed
+ * attempts are throttled: once an IP is blocked, wrong credentials get 429 but the correct secret still
+ * works, so rotating while an old rclone job runs cannot lock out the new secret.
+ */
 class AuthBackend extends AbstractBasic
 {
     private const THROTTLE_ACTION = 'backupdav';
@@ -28,21 +30,6 @@ class AuthBackend extends AbstractBasic
         $this->setRealm('BackupDAV');
     }
 
-    public function check(RequestInterface $request, ResponseInterface $response)
-    {
-        try {
-            $this->throttler->sleepDelayOrThrowOnMax($this->request->getRemoteAddress(), self::THROTTLE_ACTION);
-        } catch (MaxDelayReached) {
-            throw new class('Too many failed attempts') extends DavException {
-                public function getHTTPCode()
-                {
-                    return 429;
-                }
-            };
-        }
-        return parent::check($request, $response);
-    }
-
     protected function validateUserPass($username, $password)
     {
         if ($this->credentials->verify((string)$username, (string)$password)) {
@@ -52,6 +39,16 @@ class AuthBackend extends AbstractBasic
         $this->throttler->registerAttempt(self::THROTTLE_ACTION, $ip);
         // Never log the submitted username or password: either may contain the secret.
         $this->logger->warning('BackupDAV authentication failed', ['app' => Credentials::APP_ID, 'ip' => $ip]);
+        try {
+            $this->throttler->sleepDelayOrThrowOnMax($ip, self::THROTTLE_ACTION);
+        } catch (MaxDelayReached) {
+            throw new class('Too many failed attempts') extends DavException {
+                public function getHTTPCode()
+                {
+                    return 429;
+                }
+            };
+        }
         return false;
     }
 }
