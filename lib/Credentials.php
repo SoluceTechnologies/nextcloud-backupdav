@@ -16,7 +16,8 @@ class Credentials
     public const APP_ID = 'backupdav';
     public const USERNAME = 'backup-service';
 
-    private const KEY_ENABLED = 'enabled';
+    // Not "enabled": Nextcloud stores its own app-enabled flag under that key.
+    private const KEY_ENABLED = 'endpoint_enabled';
     private const KEY_HASH = 'secret_hash';
     private const KEY_CREATED_AT = 'secret_created_at';
     private const KEY_ALLOWED_IPS = 'allowed_ips';

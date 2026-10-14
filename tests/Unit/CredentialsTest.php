@@ -100,6 +100,18 @@ class CredentialsTest extends TestCase
         $this->assertFalse($this->credentials->isLive());
     }
 
+    public function testEndpointSwitchIsIndependentFromNextcloudsAppEnabledFlag(): void
+    {
+        // Nextcloud keeps its own "app is enabled" flag in the app's config under the key "enabled".
+        $this->store['enabled'] = true;
+        $this->credentials->generate();
+
+        $this->assertFalse($this->credentials->isLive());
+        $this->credentials->enable();
+        $this->credentials->disable();
+        $this->assertTrue($this->store['enabled'], 'disabling the endpoint must not disable the app');
+    }
+
     public function testEnableRequiresSecret(): void
     {
         $this->expectException(\RuntimeException::class);
