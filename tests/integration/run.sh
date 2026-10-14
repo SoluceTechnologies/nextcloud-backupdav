@@ -93,7 +93,8 @@ copy() {
         --include "/users/bd-alice/**" --include "/users/bd-bob/**" --include "/users/bd-carol x@y.z/**" \
         --include "/groupfolders/$GF_ID/**" \
         --create-empty-src-dirs --transfers 8 --checkers 16 -v --log-file "$WORK/rclone.log" || { echo -1; return; }
-    grep -c ': Copied (' "$WORK/rclone.log" || true
+    # "Copied (new)", or "Multi-thread Copied (new)" for files above rclone's --multi-thread-cutoff (256 MiB)
+    grep -c 'Copied (' "$WORK/rclone.log" || true
 }
 cleanup() {
     set +e
