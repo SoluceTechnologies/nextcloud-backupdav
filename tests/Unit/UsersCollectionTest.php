@@ -28,19 +28,24 @@ class UsersCollectionTest extends TestCase
         return $user;
     }
 
-    public function testListsSeenUsersWithoutStorageSetup(): void
+    public function testListsEverySeenUserFromOneUnpaginatedLookupWithoutStorageSetup(): void
     {
-        $users = $this->createStub(IUserManager::class);
-        $users->method('getSeenUsers')->willReturn(new \ArrayIterator([
-            'alice' => $this->user('alice'),
-            'bd-carol x@y.z' => $this->user('bd-carol x@y.z'),
-        ]));
+        // getSeenUsers() pages by 1000 without ORDER BY: users could be skipped, and rclone sync would delete them.
+        $all = ['ghost' => $this->user('ghost', 0), 'bd-carol x@y.z' => $this->user('bd-carol x@y.z')];
+        for ($i = 0; $i < 1500; $i++) {
+            $all["user$i"] = $this->user("user$i");
+        }
+        $users = $this->createMock(IUserManager::class);
+        $users->expects($this->once())->method('search')->with('')->willReturn($all);
+        $users->expects($this->never())->method('getSeenUsers');
         $root = $this->createMock(IRootFolder::class);
         $root->expects($this->never())->method('getUserFolder');
 
-        $children = (new UsersCollection($users, $root))->getChildren();
+        $names = array_map(static fn ($c) => $c->getName(), (new UsersCollection($users, $root))->getChildren());
 
-        $this->assertSame(['alice', 'bd-carol x@y.z'], array_map(static fn ($c) => $c->getName(), $children));
+        $this->assertCount(1501, $names);
+        $this->assertContains('bd-carol x@y.z', $names);
+        $this->assertNotContains('ghost', $names);
     }
 
     #[DataProvider('hiddenUsers')]

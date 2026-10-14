@@ -12,6 +12,8 @@ use Sabre\DAV\Exception\NotFound;
 /**
  * users/: every user who logged in at least once, disabled accounts included.
  * Never-seen users are hidden: IRootFolder::getUserFolder() would create their home (a write).
+ * Listed with one unpaginated lookup: getSeenUsers() pages without ORDER BY and can skip users,
+ * which `rclone sync` would turn into deletions at the destination.
  */
 class UsersCollection extends Collection
 {
@@ -29,8 +31,10 @@ class UsersCollection extends Collection
     public function getChildren()
     {
         $children = [];
-        foreach ($this->userManager->getSeenUsers() as $user) {
-            $children[] = new UserCollection($this->rootFolder, $user->getUID());
+        foreach ($this->userManager->search('') as $user) {
+            if ($user->getLastLogin() > 0) {
+                $children[] = new UserCollection($this->rootFolder, $user->getUID());
+            }
         }
         return $children;
     }
