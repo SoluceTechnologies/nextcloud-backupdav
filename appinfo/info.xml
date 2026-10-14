@@ -10,7 +10,7 @@ WebDAV endpoint, /remote.php/backupdav/, authenticated by a single service secre
 managed with occ (backupdav:credentials:generate, backupdav:enable). Built for rclone.
 Files are read through the Nextcloud Files API, so S3 primary storage works.
     ]]></description>
-    <version>0.0.1</version>
+    <version>0.1.0</version>
     <licence>gpl3</licence>
     <author>Soluce Technologies</author>
     <namespace>BackupDAV</namespace>
