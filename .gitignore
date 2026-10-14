@@ -27,3 +27,4 @@ composer.lock
 /node_modules
 /.pnp
 .pnp.js
+.phpunit.result.cache
