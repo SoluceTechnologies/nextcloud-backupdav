@@ -3,7 +3,11 @@ build_dir = $(CURDIR)/build
 stage_dir = $(build_dir)/$(app_name)
 sources   = appinfo lib README.md LICENSE
 
-.PHONY: all build clean
+# Unit tests run in the Nextcloud release the app targets: OCP and sabre/dav come from it.
+NC_IMAGE   ?= nextcloud:35.0.1-apache
+docker_run  = docker run --rm -u $(shell id -u):$(shell id -g) -v $(CURDIR):/app -w /app
+
+.PHONY: all build clean test integration
 
 all: build
 
@@ -15,3 +19,13 @@ build: clean
 
 clean:
 	rm -rf $(build_dir)
+
+vendor: composer.json
+	$(docker_run) -e COMPOSER_HOME=/tmp/composer composer:2 install --no-interaction --no-progress
+	touch vendor
+
+test: vendor
+	$(docker_run) --entrypoint php $(NC_IMAGE) vendor/bin/phpunit
+
+integration:
+	tests/integration/run.sh

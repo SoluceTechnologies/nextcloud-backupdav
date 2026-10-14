@@ -1,0 +1,25 @@
+{
+    "name": "soluce-technologies/nextcloud-backupdav",
+    "description": "Read-only WebDAV export of all Nextcloud users' files for rclone",
+    "type": "project",
+    "license": "GPL-3.0-only",
+    "require-dev": {
+        "phpunit/phpunit": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "OCA\\BackupDAV\\": "lib/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "OCA\\BackupDAV\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "platform": {
+            "php": "8.3"
+        },
+        "sort-packages": true
+    }
+}
