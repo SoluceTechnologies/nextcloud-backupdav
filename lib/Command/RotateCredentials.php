@@ -9,7 +9,7 @@ class RotateCredentials extends GenerateCredentials
     protected function configure(): void
     {
         $this->setName('backupdav:credentials:rotate')
-            ->setDescription('Replace the backup-service secret; the old one stops working immediately');
+            ->setDescription('Replace the backup-service secret; the old one stops working within seconds');
     }
 
     protected function newSecret(): string

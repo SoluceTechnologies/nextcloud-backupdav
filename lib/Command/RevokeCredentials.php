@@ -19,7 +19,7 @@ class RevokeCredentials extends Command
     protected function configure(): void
     {
         $this->setName('backupdav:credentials:revoke')
-            ->setDescription('Delete the backup-service secret; the endpoint answers 404 from the next request');
+            ->setDescription('Delete the backup-service secret; the endpoint answers 404 within seconds');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

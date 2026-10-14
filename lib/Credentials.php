@@ -8,8 +8,8 @@ use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
 
 /**
- * Service identity and endpoint state, kept in app config and read on every request:
- * disable, rotate and revoke apply from the next request on.
+ * Service identity and endpoint state, kept in app config and read on every request. Web workers
+ * cache app config for up to 3 seconds, so disable, rotate and revoke apply within seconds.
  */
 class Credentials
 {

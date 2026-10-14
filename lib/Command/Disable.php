@@ -19,7 +19,7 @@ class Disable extends Command
     protected function configure(): void
     {
         $this->setName('backupdav:disable')
-            ->setDescription('Turn the endpoint off immediately (it answers 404)');
+            ->setDescription('Turn the endpoint off; within seconds it answers 404');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
