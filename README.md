@@ -44,12 +44,15 @@ group folder does not re-transfer it.
 ## Compatibility
 
 - Nextcloud 35 (tested on 35.0.1). `info.xml` allows 34–35; 34 is not tested.
-- Group folders: tested with groupfolders 23.0.1, which gives each folder its own storage. Nextcloud
-  has no public API to list group folders, so BackupDAV uses the groupfolders app's `FolderManager`
-  for the list (the app's only dependency on another app's internals) and reads each folder through
-  the public Files API, via one member's mount. If a groupfolders update changes that class,
-  `groupfolders/` answers `503` and the error is logged: the export fails loudly instead of silently
-  skipping group folders. Re-run the integration test after upgrading Nextcloud or groupfolders.
+- Group folders: tested with groupfolders 23.0.1 (separate storage per folder; the legacy
+  `__groupfolders` layout uses the same code path). Nextcloud has no public API for group folders, so
+  BackupDAV uses two classes of the groupfolders app, `FolderManager` (list) and
+  `FolderStorageManager` (storage of a folder): its only dependency on another app's internals.
+  Each folder is read straight from its storage, with no user, the way groupfolders itself reads
+  trash and versions: no member is needed and advanced permissions (ACL) do not filter the backup.
+  If a groupfolders update changes those classes, `groupfolders/` answers `503` and a warning is
+  logged: the export fails loudly instead of silently skipping group folders. Re-run the
+  integration test after upgrading Nextcloud or groupfolders.
 
 ## Install (Docker)
 
@@ -130,8 +133,8 @@ rclone copy nextcloud-export: backup:nextcloud-export/ \
 - `--create-empty-src-dirs` keeps empty folders.
 - `copy` never deletes at the destination: files of deleted users or deleted files stay there.
   `rclone sync` mirrors deletions; pair it with `--backup-dir` or destination-side versioning.
-  With `sync`, anything missing from a listing is deleted at the destination, including a group
-  folder that is temporarily unreachable (see Known limits). Prefer `copy` plus retention on B.
+  With `sync`, anything missing from a listing is deleted at the destination. Prefer `copy` plus
+  retention on B.
 
 ### Example: nightly A → C → B
 
@@ -158,8 +161,7 @@ every request within that delay. A download already in progress finishes.
 Entries go to the Nextcloud log with `"app": "backupdav"`:
 
 - warning: failed authentication (client IP only), requests from non-allowed IPs, storage read
-  errors (including a groupfolders API mismatch), group folders that cannot be reached, PROPFIND
-  requests slower than 10 s;
+  errors (including a groupfolders API mismatch), PROPFIND requests slower than 10 s;
 - info: secret generated, rotated, revoked; endpoint enabled, disabled;
 - error: unexpected failures.
 
@@ -194,11 +196,12 @@ Throttle from the rclone side with `--transfers`, `--checkers`, `--tpslimit 10` 
 
 - Users who never logged in are not exported.
 - External storage and federated shares are not exported.
-- A group folder is read through one member's mount. It is skipped (and logged) until at least one
-  member has used Nextcloud since the folder was created; a new folder appears once a member's
-  mounts are refreshed (`fs_mount_cache_duration`, 5 minutes by default).
-- Group folders with advanced permissions (ACL) are exported as the resolving member sees them and
-  may be incomplete. `occ backupdav:status` counts them.
+- Group folders are exported in full, whatever their advanced permissions (ACL): by design, the
+  backup host sees what no single member may see.
+- Group folders cannot be exported while server-side encryption is enabled (their storage holds
+  encrypted data): `groupfolders/` answers `503`. Personal files are not affected.
+- Group folder files are read without Nextcloud's shared file lock. On S3 each write replaces the
+  whole object, so a download gets either the old or the new version of a file being saved.
 - ETags are not checksums; `--checksum` is unsupported.
 - `HEAD` on a file opens the storage stream like `GET` (Sabre behaviour), then discards it.
 - One service identity per instance.
