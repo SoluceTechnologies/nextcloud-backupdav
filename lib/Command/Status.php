@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace OCA\BackupDAV\Command;
 
 use OCA\BackupDAV\Credentials;
-use OCA\BackupDAV\Dav\GroupFoldersCollection;
 use OCA\BackupDAV\GroupFolderIndex;
 use OCP\App\IAppManager;
-use OCP\Files\IRootFolder;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
 use OCP\ServerVersion;
-use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
@@ -24,11 +21,9 @@ class Status extends Command
         private Credentials $credentials,
         private IURLGenerator $urlGenerator,
         private IUserManager $userManager,
-        private IRootFolder $rootFolder,
         private GroupFolderIndex $groupFolders,
         private IAppManager $appManager,
         private ServerVersion $serverVersion,
-        private LoggerInterface $logger,
     ) {
         parent::__construct();
     }
@@ -68,12 +63,9 @@ class Status extends Command
     private function groupFolderSummary(): string
     {
         try {
-            $folders = $this->groupFolders->folders();
-            $reachable = count((new GroupFoldersCollection($this->rootFolder, $this->groupFolders, $this->logger))->getChildren());
-        } catch (\Exception $e) {
+            return (string)count($this->groupFolders->ids());
+        } catch (\RuntimeException $e) {
             return 'error: ' . $e->getMessage();
         }
-        $acl = count(array_filter($folders, static fn (array $folder): bool => $folder['acl']));
-        return sprintf('%d (%d reachable, %d with advanced permissions)', count($folders), $reachable, $acl);
     }
 }
