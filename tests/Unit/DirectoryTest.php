@@ -44,6 +44,14 @@ class DirectoryTest extends TestCase
         $this->assertInstanceOf(Directory::class, $children[1]);
     }
 
+    public function testExportRootCanBeNamedExplicitly(): void
+    {
+        $folder = $this->node(Folder::class, 'Compta', '/alice/files/Compta/');
+
+        $this->assertSame('12', (new Directory($folder, null, '12'))->getName());
+        $this->assertSame('Compta', (new Directory($folder))->getName());
+    }
+
     public function testGetChildRefusesForeignMount(): void
     {
         $home = $this->node(Folder::class, 'files', self::HOME);

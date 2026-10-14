@@ -24,8 +24,12 @@ class Directory extends Collection
 {
     private string $exportMount;
 
-    public function __construct(private Folder $folder, ?string $exportMount = null)
-    {
+    /** @param ?string $name overrides the folder name (group folder roots are exposed by id) */
+    public function __construct(
+        private Folder $folder,
+        ?string $exportMount = null,
+        private ?string $name = null,
+    ) {
         $this->exportMount = $exportMount ?? $folder->getMountPoint()->getMountPoint();
     }
 
@@ -37,7 +41,7 @@ class Directory extends Collection
 
     public function getName()
     {
-        return $this->folder->getName();
+        return $this->name ?? $this->folder->getName();
     }
 
     public function getLastModified()
