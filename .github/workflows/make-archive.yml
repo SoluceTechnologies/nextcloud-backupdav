@@ -1,0 +1,47 @@
+name: Build & attach archive
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Version/tag to build from (e.g. 1.2.3)"
+        required: true
+        type: string
+      draft_tag:
+        description: "Draft release id from create-release (untagged-xxxx)"
+        required: true
+        type: string
+      artifact_path:
+        description: "Path produced by the build step"
+        required: false
+        type: string
+        default: "build/backupdav.tar.gz"
+    secrets:
+      GH_TOKEN:
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout released ref
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version }}
+          fetch-depth: 0
+
+      - name: Build tarball
+        run: make build
+
+      - name: Verify artifact exists
+        run: test -f "${{ inputs.artifact_path }}" || { echo "missing ${{ inputs.artifact_path }}"; exit 1; }
+
+      - name: Attach to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          gh release upload "${{ inputs.draft_tag }}" \
+            "${{ inputs.artifact_path }}" --clobber
