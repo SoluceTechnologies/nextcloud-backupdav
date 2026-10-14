@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>backupdav</id>
+    <name>BackupDAV</name>
+    <summary>Read-only WebDAV export of all users' files for rclone backups</summary>
+    <description><![CDATA[
+Exposes every user's personal files and every group folder through one read-only
+WebDAV endpoint, /remote.php/backupdav/, authenticated by a single service secret
+managed with occ (backupdav:credentials:generate, backupdav:enable). Built for rclone.
+Files are read through the Nextcloud Files API, so S3 primary storage works.
+    ]]></description>
+    <version>0.0.1</version>
+    <licence>gpl3</licence>
+    <author>Soluce Technologies</author>
+    <namespace>BackupDAV</namespace>
+    <category>files</category>
+    <bugs>https://github.com/SoluceTechnologies/nextcloud-backupdav/issues</bugs>
+    <dependencies>
+        <nextcloud min-version="34" max-version="35"/>
+    </dependencies>
+    <commands>
+        <command>OCA\BackupDAV\Command\Status</command>
+        <command>OCA\BackupDAV\Command\Enable</command>
+        <command>OCA\BackupDAV\Command\Disable</command>
+        <command>OCA\BackupDAV\Command\GenerateCredentials</command>
+        <command>OCA\BackupDAV\Command\RotateCredentials</command>
+        <command>OCA\BackupDAV\Command\RevokeCredentials</command>
+    </commands>
+    <remote>
+        <backupdav>appinfo/remote.php</backupdav>
+    </remote>
+</info>
