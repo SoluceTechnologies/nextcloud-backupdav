@@ -39,7 +39,7 @@ class ServerFactory
         Server::$exposeVersion = false;
         $server = new Server(new SimpleCollection('root', [
             new UsersCollection($this->userManager, $this->rootFolder),
-            new GroupFoldersCollection($this->rootFolder, $this->groupFolders, $this->logger),
+            new GroupFoldersCollection($this->groupFolders),
         ]));
         $server->httpRequest->setUrl($this->request->getRequestUri());
         $server->setBaseUri($baseUri);

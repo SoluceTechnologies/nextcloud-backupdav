@@ -171,6 +171,10 @@ curl -fsS -o /dev/null -u "bd-alice:$PW" -H 'OCS-APIRequest: true' -X POST \
     --data-urlencode path=/Shared-with-bob --data-urlencode shareType=0 --data-urlencode shareWith=bd-bob
 check "bob sees alice's share in his own files" quiet nc_dav bd-bob -X PROPFIND Shared-with-bob
 check "alice sees the group folder in her files" quiet nc_dav bd-alice -X PROPFIND "$GF_NAME"
+# Advanced permissions: hide sub/ from its only member. The backup must still contain it.
+occ groupfolders:permissions "$GF_ID" --enable >/dev/null
+occ groupfolders:permissions "$GF_ID" sub -g bd-group -- -read >/dev/null
+check "ACL hides sub/ from alice" refused nc_dav bd-alice -X PROPFIND "$GF_NAME/sub"
 occ user:disable bd-bob >/dev/null
 GHOST_BEFORE="$(ghost_storages)"
 
@@ -196,7 +200,7 @@ for u in bd-alice/ bd-bob/ "bd-carol x@y.z/"; do check "users/ lists $u" grep -q
 check "users/ hides the never-logged-in user" refused grep -qxF bd-ghost/ <<<"$users_list"
 gf_list="$(rclone lsf bd:groupfolders)"
 check "group folder listed by id" grep -qxF "$GF_ID/" <<<"$gf_list"
-check "group folder without reachable members is skipped" refused grep -qxF "$GF_ORPHAN_ID/" <<<"$gf_list"
+check "group folder without members is listed" grep -qxF "$GF_ORPHAN_ID/" <<<"$gf_list"
 check "rclone ls walks the whole export" quiet rclone ls bd:
 
 echo "== copy"
@@ -206,6 +210,7 @@ check "contents identical (sha256)" diff <(sums "$SRC") <(sums "$WORK/dest")
 check "directory tree identical, empty folder included" diff <(dirs "$SRC") <(dirs "$WORK/dest")
 check "share exported only under its owner" test ! -e "$WORK/dest/users/bd-bob/Shared-with-bob"
 check "group folder not duplicated under its members" test ! -e "$WORK/dest/users/bd-alice/$GF_NAME"
+check "content hidden by ACL is still exported" test -f "$WORK/dest/groupfolders/$GF_ID/sub/data.csv"
 check "disabled user still exported" test -f "$WORK/dest/users/bd-bob/Projets/rapport.docx"
 check "no storage created for the never-logged-in user" test "$(ghost_storages)" = "$GHOST_BEFORE"
 n="$(copy)"
@@ -253,8 +258,8 @@ instanceid="$(occ config:system:get instanceid)"
 for p in "users/bd-alice/%2e%2e/%2e%2e/%2e%2e/etc/passwd" "users/bd-alice/%2e%2e/files_trashbin/" \
     "users/bd-alice/..%2ffiles_trashbin/" "users/bd-alice/files_trashbin/" "users/bd-alice/files_versions/" \
     "appdata_$instanceid/" "users/bd-alice/$GF_NAME/" "users/bd-bob/Shared-with-bob/" \
-    "users/BD-ALICE/" "users/bd-ghost/" "groupfolders/0$GF_ID/" "groupfolders/$GF_ORPHAN_ID/" \
-    "groupfolders/$GF_NAME/"; do
+    "users/BD-ALICE/" "users/bd-ghost/" "groupfolders/0$GF_ID/" "groupfolders/$GF_NAME/" \
+    "groupfolders/$GF_ID/versions/" "groupfolders/$GF_ID/trash/" "groupfolders/$GF_ID/..%2fversions/"; do
     expect "out-of-perimeter path $p" "400|403|404" --path-as-is -u "backup-service:$SECRET" \
         -X PROPFIND -H 'Depth: 0' "$DAV/$p"
 done
@@ -288,7 +293,6 @@ logfile="$(occ config:system:get logfile 2>/dev/null || true)"
 [ -n "$logfile" ] || logfile="$(occ config:system:get datadirectory)/nextcloud.log"
 check "log file readable" quiet docker exec "$NC" test -r "$logfile"
 check "auth failures are logged" quiet docker exec "$NC" grep -q 'BackupDAV authentication failed' "$logfile"
-check "unreachable group folder is logged" quiet docker exec "$NC" grep -q 'BackupDAV cannot reach group folder' "$logfile"
 for s in "${SECRETS[@]}"; do check "secret absent from nextcloud.log" refused docker exec "$NC" grep -qF "$s" "$logfile"; done
 
 echo
