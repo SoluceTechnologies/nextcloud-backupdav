@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace OCA\BackupDAV;
 
 use OCA\BackupDAV\Dav\AuthBackend;
+use OCA\BackupDAV\Dav\File;
 use OCA\BackupDAV\Dav\GroupFoldersCollection;
 use OCA\BackupDAV\Dav\ReadOnlyPlugin;
+use OCA\BackupDAV\Dav\StorageFile;
 use OCA\BackupDAV\Dav\UsersCollection;
 use OCP\Files\IRootFolder;
 use OCP\IRequest;
@@ -16,12 +18,16 @@ use OCP\Security\Ip\IFactory;
 use Psr\Log\LoggerInterface;
 use Sabre\DAV\Auth\Plugin as AuthPlugin;
 use Sabre\DAV\Exception as DavException;
+use Sabre\DAV\INode;
+use Sabre\DAV\PropFind;
 use Sabre\DAV\Server;
 use Sabre\DAV\SimpleCollection;
 
 /** Builds the app's own SabreDAV server, independent from Nextcloud's /remote.php/dav server. */
 class ServerFactory
 {
+    public const NS_OWNCLOUD = 'http://owncloud.org/ns';
+
     public function __construct(
         private IRootFolder $rootFolder,
         private IUserManager $userManager,
@@ -46,7 +52,28 @@ class ServerFactory
         $server->addPlugin(new ReadOnlyPlugin($this->request, $this->ipFactory, $this->credentials, $this->logger));
         $server->addPlugin(new AuthPlugin(new AuthBackend($this->credentials, $this->throttler, $this->request, $this->logger)));
         $server->on('exception', $this->logException(...));
+        $server->xml->namespaceMap[self::NS_OWNCLOUD] = 'oc';
+        $server->on('propFind', $this->propFind(...));
         return $server;
+    }
+
+    /**
+     * oc:checksums, as Nextcloud's own WebDAV serves it: rclone (vendor = owncloud) reads MD5 and
+     * SHA1 from it. Only checksums stored at upload are served, never computed (that would read
+     * every file from S3); Nextcloud clears them whenever the content changes.
+     */
+    public function propFind(PropFind $propFind, INode $node): void
+    {
+        if (!$node instanceof File && !$node instanceof StorageFile) {
+            return;
+        }
+        $propFind->handle('{' . self::NS_OWNCLOUD . '}checksums', static function () use ($node): ?array {
+            $checksum = $node->getChecksum();
+            return $checksum === '' ? null : array_map(
+                static fn (string $c): array => ['name' => '{' . self::NS_OWNCLOUD . '}checksum', 'value' => $c],
+                explode(' ', $checksum),
+            );
+        });
     }
 
     /** 4xx are expected client errors (auth/IP failures are logged where they happen). */

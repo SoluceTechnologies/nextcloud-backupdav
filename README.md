@@ -129,7 +129,14 @@ rclone copy nextcloud-export: backup:nextcloud-export/ \
 - Use `vendor = owncloud`. With `vendor = other`, rclone ignores modification times and compares
   sizes only, so a file edited without changing its size is never copied again.
 - Incremental runs compare size and modification time; unchanged files are not transferred again.
-- ETags are change markers, not content checksums: do not use `--checksum`.
+- Checksums are served when Nextcloud stored one at upload (clients sending an `OC-Checksum`
+  header: desktop client, rclone); browser uploads have none, and none is ever computed.
+  `vendor = owncloud` reads MD5 and SHA1, `vendor = nextcloud` SHA1 only. rclone verifies each
+  download against them, and `--track-renames-strategy=hash` can match files that have an MD5
+  on both sides. Check coverage with
+  `SELECT checksum LIKE '%MD5:%', count(*) FROM oc_filecache WHERE mimetype <> (SELECT id FROM oc_mimetypes WHERE mimetype = 'httpd/unix-directory') GROUP BY 1`.
+- Do not use `--checksum`: files without a stored checksum would be compared by size only.
+  ETags are change markers, not content checksums.
 - `--create-empty-src-dirs` keeps empty folders.
 - `copy` never deletes at the destination: files of deleted users or deleted files stay there.
   `rclone sync` mirrors deletions; pair it with `--backup-dir` or destination-side versioning.
@@ -202,7 +209,7 @@ Throttle from the rclone side with `--transfers`, `--checkers`, `--tpslimit 10` 
   encrypted data): `groupfolders/` answers `503`. Personal files are not affected.
 - Group folder files are read without Nextcloud's shared file lock. On S3 each write replaces the
   whole object, so a download gets either the old or the new version of a file being saved.
-- ETags are not checksums; `--checksum` is unsupported.
+- Only checksums stored at upload are served (see rclone above); `--checksum` is unsupported.
 - `HEAD` on a file opens the storage stream like `GET` (Sabre behaviour), then discards it.
 - One service identity per instance.
 

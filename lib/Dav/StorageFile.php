@@ -60,4 +60,11 @@ class StorageFile extends DavFile
     {
         return $this->entry->getMimeType();
     }
+
+    /** Checksums stored at upload, as Nextcloud keeps them ("SHA1:… MD5:…"); '' when none. */
+    public function getChecksum(): string
+    {
+        // Not on ICacheEntry's method list, only on the array view of the cache row.
+        return (string) $this->entry['checksum'];
+    }
 }
