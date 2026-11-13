@@ -131,6 +131,10 @@ rclone copy nextcloud-export: backup:nextcloud-export/ \
 - Incremental runs compare size and modification time; unchanged files are not transferred again.
 - Checksums are served when Nextcloud stored one at upload (clients sending an `OC-Checksum`
   header: desktop client, rclone); browser uploads have none, and none is ever computed.
+  The app advertises the `checksums` capability with `preferredUploadType = MD5`, so desktop
+  clients upload with MD5 (their default is SHA1), the only hash rclone's S3 backend knows.
+  Files uploaded before keep their checksum. A client can override it with the
+  `OWNCLOUD_CONTENT_CHECKSUM_TYPE` environment variable.
   `vendor = owncloud` reads MD5 and SHA1, `vendor = nextcloud` SHA1 only. rclone verifies each
   download against them, and `--track-renames-strategy=hash` can match files that have an MD5
   on both sides. Check coverage with

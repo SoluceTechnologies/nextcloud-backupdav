@@ -219,6 +219,8 @@ n="$(copy)"
 check "unchanged second copy transfers nothing ($n)" test "$n" -eq 0
 
 echo "== checksums"
+check "capability asks desktop clients for MD5 uploads" grep -Eq '"preferredUploadType": ?"MD5"' <<<"$(curl -s -u "bd-alice:$PW" \
+    -H 'OCS-APIRequest: true' "$BASE_URL/ocs/v1.php/cloud/capabilities?format=json")"
 # the copies above already verified every download against these MD5s (rclone fails on a mismatch)
 check "user file serves the MD5 stored at upload" \
     grep -qxF "$(md5_of "$A/Documents/contrat.pdf")  contrat.pdf" <<<"$(rclone md5sum bd:users/bd-alice/Documents)"
