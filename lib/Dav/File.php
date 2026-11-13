@@ -62,4 +62,10 @@ class File extends DavFile
     {
         return $this->file->getMimetype();
     }
+
+    /** Checksums stored at upload, as Nextcloud keeps them ("SHA1:… MD5:…"); '' when none. */
+    public function getChecksum(): string
+    {
+        return (string) $this->file->getChecksum();
+    }
 }

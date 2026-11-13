@@ -66,12 +66,14 @@ upload_tree() {
     while IFS= read -r -d '' rel; do
         nc_dav "$uid" -X MKCOL "$prefix/${rel#./}"
     done < <(cd "$dir" && find . -mindepth 1 -type d -print0 | sort -z)
+    # with OC-Checksum, as the desktop client and rclone upload: Nextcloud stores it in the file cache
     while IFS= read -r -d '' rel; do
-        nc_dav "$uid" -T "$dir/${rel#./}" "$prefix/${rel#./}"
+        nc_dav "$uid" -H "OC-Checksum: MD5:$(md5_of "$dir/${rel#./}")" -T "$dir/${rel#./}" "$prefix/${rel#./}"
     done < <(cd "$dir" && find . -type f -print0 | sort -z)
 }
 put() { mkdir -p "$(dirname "$1")"; printf '%s' "$2" > "$1"; }
 sums() { (cd "$1" && find . -type f -print0 | sort -z | xargs -0 -r sha256sum); }
+md5_of() { md5sum < "$1" | cut -d' ' -f1; }
 dirs() { (cd "$1" && find . -type d | sort); }
 prop() { svc -X PROPFIND -H 'Depth: 0' "$DAV/$(urlenc "$2")" | grep -o "<d:$1>[^<]*" | cut -d'>' -f2; }
 ghost_storages() {
@@ -216,6 +218,13 @@ check "no storage created for the never-logged-in user" test "$(ghost_storages)"
 n="$(copy)"
 check "unchanged second copy transfers nothing ($n)" test "$n" -eq 0
 
+echo "== checksums"
+# the copies above already verified every download against these MD5s (rclone fails on a mismatch)
+check "user file serves the MD5 stored at upload" \
+    grep -qxF "$(md5_of "$A/Documents/contrat.pdf")  contrat.pdf" <<<"$(rclone md5sum bd:users/bd-alice/Documents)"
+check "group folder file serves the MD5 stored at upload" \
+    grep -qxF "$(md5_of "$G/notes.txt")  notes.txt" <<<"$(rclone md5sum "bd:groupfolders/$GF_ID" --max-depth 1)"
+
 echo "== incremental"
 etag0="$(prop getetag users/bd-alice/Documents/contrat.pdf)"
 mtime0="$(prop getlastmodified users/bd-alice/Documents/contrat.pdf)"
@@ -229,6 +238,8 @@ check "mtime changed after modification" test "$(prop getlastmodified users/bd-a
 n="$(copy)"
 check "third copy transfers exactly the 2 modified files ($n)" test "$n" -eq 2
 check "contents identical after the incremental copy" diff <(sums "$SRC") <(sums "$WORK/dest")
+check "checksum dropped when overwritten without one" \
+    refused grep -Eq '^[0-9a-f]{32}  contrat.pdf$' <<<"$(rclone md5sum bd:users/bd-alice/Documents)"
 
 echo "== downloads"
 size="$(stat -c %s "$A/big.bin")"
